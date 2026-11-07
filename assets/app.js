@@ -41,8 +41,9 @@
     ]
   };
 
-  var STATUSES = ['todo', 'progress', 'paid'];
-  var STATUS_LABEL = { todo: 'Not started', progress: 'In progress', paid: 'Paid' };
+  var STATUSES = ['todo', 'progress', 'partial', 'paid'];
+  var STATUS_LABEL = { todo: 'Not started', progress: 'In progress', partial: 'Partial', paid: 'Paid' };
+  var STATUS_ARIA = { todo: 'Not started', progress: 'In progress', partial: 'Partially paid', paid: 'Paid in full' };
 
   /* ── storage ───────────────────────────────────────────── */
   var state = load();
@@ -77,6 +78,9 @@
           if (typeof row.date === 'string') target.date = row.date;
           if (typeof row.note === 'string') target.note = row.note;
         }
+        if (target.status === 'paid' && target.actual != null && target.actual < target.est) {
+          target.status = target.actual > 0 ? 'partial' : 'progress';  // pre-partial saved state
+        }
       });
     });
     return out;
@@ -99,6 +103,15 @@
   var peso = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 });
   function fmt(n) { return peso.format(Number(n) || 0).replace('PHP', '₱').replace(/\s/g, ''); }
   function fmtShort(n) { return '₱' + (Number(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  /* Local calendar date, not toISOString(): that is UTC, and for a client in
+     UTC+8 every payment entered before 08:00 would be stamped with yesterday. */
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
   function fmtDate(iso) {
     if (!iso) return '';
     var p = iso.split('-');
@@ -113,27 +126,56 @@
   }
 
   /* ── totals ────────────────────────────────────────────── */
+  /* Every amount in the app derives from these four functions.
+     A payment is booked as soon as it is marked paid OR partial; the
+     amount used is `actual` when it has been entered, else the estimate. */
+  function booked(row) {
+    if (row.status !== 'paid' && row.status !== 'partial') return 0;
+    return row.actual != null ? row.actual : row.est;
+  }
+  function balanceOf(row) {
+    if (row.status === 'paid') return Math.max(0, row.est - booked(row));
+    return Math.max(0, row.est - booked(row));
+  }
   function govEstimateTotal() { return state.gov.reduce(function (s, r) { return s + r.est; }, 0); }
-  function govActualTotal() { return state.gov.reduce(function (s, r) { return s + (r.status === 'paid' ? (r.actual != null ? r.actual : r.est) : 0); }, 0); }
-  function govSettledEstimate() { return state.gov.reduce(function (s, r) { return s + (r.status === 'paid' ? r.est : 0); }, 0); }
+  function govActualTotal() { return state.gov.reduce(function (s, r) { return s + booked(r); }, 0); }
+  function govBalanceTotal() { return state.gov.reduce(function (s, r) { return s + balanceOf(r); }, 0); }
+  function govSettledEstimate() { return state.gov.reduce(function (s, r) { return s + (r.status === 'paid' ? r.est : booked(r)); }, 0); }
+  function govSettledFull() { return fmtShort(govFullyPaid()); }
+  function govFullyPaid() { return state.gov.reduce(function (s, r) { return s + (r.status === 'paid' ? booked(r) : 0); }, 0); }
+  function govPartialOnly() { return state.gov.reduce(function (s, r) { return s + (r.status === 'partial' ? booked(r) : 0); }, 0); }
   function vaPaid() { return state.vaCollected ? state.vaFee : 0; }
+
+  /* Status is a consequence of the amount, not a separate fact: a row whose
+     payment is less than its estimate is by definition partial. */
+  function reconcileStatus(row) {
+    if (row.status === 'paid' || row.status === 'partial') {
+      var amt = booked(row);
+      row.status = amt >= row.est ? 'paid' : 'partial';
+      row.actual = amt;
+    }
+    return row;
+  }
 
   /* ── render: government table ──────────────────────────── */
   function renderGov() {
     var body = document.getElementById('govBody');
     body.innerHTML = state.gov.map(function (r) {
       var paid = r.status === 'paid';
-      var actual = r.actual != null ? r.actual : (paid ? r.est : '');
-      return '<tr class="' + (paid ? 'is-paid' : '') + '" data-row="' + r.id + '" data-kind="gov">' +
+      var part = r.status === 'partial';
+      var actual = r.actual != null ? r.actual : (r.status === 'paid' || part ? booked(r) : '');
+      var bal = balanceOf(r);
+      return '<tr class="' + (paid ? 'is-paid' : part ? 'is-partial' : '') + '" data-row="' + r.id + '" data-kind="gov">' +
         '<td class="agency">' + esc(r.agency) + '</td>' +
         '<td class="item"><strong>' + esc(r.item) + '</strong>' +
           (paid && r.id === 'dti' ? '<span class="tag-done">Completed</span>' : '') + '</td>' +
         '<td class="col-amt"><strong>' + fmtShort(r.est) + '</strong></td>' +
         '<td class="col-actual"><input class="amt-input" type="number" min="0" step="0.01" inputmode="decimal" ' +
-          'value="' + (actual === '' ? '' : actual) + '" placeholder="—" aria-label="Actual paid for ' + esc(r.item) + '" ' +
+          'value="' + (actual === '' ? '' : actual) + '" placeholder="—" aria-label="Paid so far for ' + esc(r.item) + '" ' +
           'data-field="actual"></td>' +
+        '<td class="col-balance' + (bal > 0 && (paid || part) ? ' owes' : '') + '">' + fmtShort(bal) + '</td>' +
         '<td class="col-status"><button class="chip" type="button" data-s="' + r.status + '" data-action="cycle" ' +
-          'aria-label="Status: ' + STATUS_LABEL[r.status] + ' — click to change">' + STATUS_LABEL[r.status] + '</button></td>' +
+          'aria-label="Status: ' + STATUS_ARIA[r.status] + ' — click to change">' + STATUS_LABEL[r.status] + '</button></td>' +
         '<td class="col-date"><input class="date-input" type="date" value="' + esc(r.date) + '" aria-label="Date paid for ' + esc(r.item) + '" data-field="date"></td>' +
         '<td class="col-note"><input class="note-input" type="text" value="' + esc(r.note) + '" placeholder="add note…" aria-label="Note for ' + esc(r.item) + '" data-field="note"></td>' +
         '</tr>';
@@ -142,18 +184,19 @@
     document.getElementById('govSubtotal').textContent = fmtShort(govEstimateTotal());
     document.getElementById('govFootEst').textContent = fmtShort(govEstimateTotal());
     document.getElementById('govFootAct').textContent = fmtShort(govActualTotal());
+    document.getElementById('govFootBal').textContent = fmtShort(govBalanceTotal());
   }
 
   /* ── render: VA table ──────────────────────────────────── */
   function renderVa() {
     var body = document.getElementById('vaBody');
     body.innerHTML = state.va.map(function (r) {
-      return '<tr class="' + (r.status === 'paid' ? 'is-paid' : '') + '" data-row="' + r.id + '" data-kind="va">' +
+      return '<tr class="' + (r.status === 'paid' ? 'is-paid' : r.status === 'partial' ? 'is-partial' : '') + '" data-row="' + r.id + '" data-kind="va">' +
         '<td class="item"><strong>' + esc(r.scope) + '</strong>' +
           (r.status === 'paid' ? '<span class="tag-done">Done</span>' : '') + '</td>' +
         '<td class="agency">' + esc(r.covers) + '</td>' +
         '<td class="col-status"><button class="chip" type="button" data-s="' + r.status + '" data-action="cycle" ' +
-          'aria-label="Status: ' + STATUS_LABEL[r.status] + ' — click to change">' + STATUS_LABEL[r.status] + '</button></td>' +
+          'aria-label="Status: ' + STATUS_ARIA[r.status] + ' — click to change">' + STATUS_LABEL[r.status] + '</button></td>' +
         '<td class="col-date"><input class="date-input" type="date" value="' + esc(r.date) + '" aria-label="Date for ' + esc(r.scope) + '" data-field="date"></td>' +
         '<td class="col-note"><input class="note-input" type="text" value="' + esc(r.note) + '" placeholder="add note…" aria-label="Note for ' + esc(r.scope) + '" data-field="note"></td>' +
         '</tr>';
@@ -166,30 +209,47 @@
     var gov = govEstimateTotal();
     var va = state.vaFee;
     var total = gov + va;
-    var settled = govSettledEstimate() + vaPaid();
-    var due = total - settled;
+
+    var fullPaid = govFullyPaid() + vaPaid();
+    var partialOnly = govPartialOnly();
+    var received = fullPaid + partialOnly;
+    var balance = total - received;
 
     document.getElementById('kTotal').textContent = fmtShort(total);
     document.getElementById('kGov').textContent = fmtShort(gov);
     document.getElementById('kGovSub').textContent = state.gov.length + ' line items';
     document.getElementById('kVaFee').textContent = fmtShort(va);
-    document.getElementById('kPaid').textContent = fmtShort(settled);
-    document.getElementById('kPaidSub').textContent = Math.round(settled / total * 100) + '% of total';
-    document.getElementById('kDue').textContent = fmtShort(due);
-    document.getElementById('kDueSub').textContent = 'excludes unsettled actuals';
+
+    document.getElementById('kPaid').textContent = fmtShort(fullPaid);
+    document.getElementById('kPaidSub').textContent =
+      govSettledFull() + ' gov + ' + fmtShort(vaPaid()) + ' VA';
+
+    document.getElementById('kPartial').textContent = fmtShort(partialOnly);
+    var partialRows = state.gov.filter(function (r) { return r.status === 'partial'; });
+    document.getElementById('kPartialSub').textContent = partialRows.length
+      ? partialRows.length + ' row' + (partialRows.length > 1 ? 's' : '') + ' mid-payment'
+      : 'no partial payments yet';
+
+    document.getElementById('kDue').textContent = fmtShort(balance);
+    document.getElementById('kDueSub').textContent = Math.round(received / total * 100) + '% of total received';
 
     document.getElementById('tGov').textContent = fmtShort(gov);
     document.getElementById('tVa').textContent = fmtShort(va);
     document.getElementById('tGrand').textContent = fmtShort(total);
+    document.getElementById('tReceived').textContent = fmtShort(received);
+    document.getElementById('tBalance').textContent = fmtShort(balance);
+    document.getElementById('tSettled').textContent = fmtShort(fullPaid);
 
     var rows = state.gov.concat(state.va);
     var done = rows.filter(function (r) { return r.status === 'paid'; }).length;
-    var partial = rows.reduce(function (s, r) { return s + (r.status === 'progress' ? 0.5 : 0); }, 0);
-    var pct = Math.round((done + partial) / rows.length * 100);
+    // value-weighted progress: money received against money owed, so a half-paid
+    // permit moves the bar by its actual share rather than a flat 50%.
+    var pct = total > 0 ? Math.round(received / total * 100) : 0;
     document.getElementById('barFill').style.width = pct + '%';
     var bar = document.getElementById('bar');
     bar.setAttribute('aria-valuenow', String(pct));
-    document.getElementById('progressLabel').textContent = done + ' of ' + rows.length + ' steps complete';
+    document.getElementById('progressLabel').textContent =
+      done + ' of ' + rows.length + ' steps complete · ' + pct + '% of value received';
 
     renderPipeline();
   }
@@ -258,8 +318,25 @@
       if (row) {
         var next = STATUSES[(STATUSES.indexOf(row.status) + 1) % STATUSES.length];
         row.status = next;
-        if (next === 'paid' && !row.date) row.date = new Date().toISOString().slice(0, 10);
-        if (next === 'todo') row.date = '';
+
+        if (next === 'partial') {
+          // Default a fresh partial payment to half the estimate; the user
+          // then overwrites it with the real amount received.
+          if (row.actual == null || row.actual >= row.est) row.actual = Math.round(row.est / 2 * 100) / 100;
+          if (!row.date) row.date = today();
+        }
+
+        if (next === 'paid') {
+          // Marking paid without an entered amount settles the full estimate.
+          if (row.actual == null || row.actual < row.est) row.actual = row.est;
+          if (!row.date) row.date = today();
+        }
+
+        if (next === 'todo' || next === 'progress') {
+          row.actual = null;
+          row.date = '';
+        }
+
         save();
         renderAll();
       }
@@ -298,18 +375,34 @@
     if (field === 'actual') {
       var v = t.value === '' ? null : Math.max(0, parseFloat(t.value) || 0);
       row.actual = v;
+
+      // Entering an amount is enough to classify the row: below the estimate is
+      // partial, at or above it is paid, cleared means nothing booked yet.
+      if (v == null) {
+        if (row.status === 'paid' || row.status === 'partial') row.status = 'progress';
+      } else if (v >= row.est) {
+        row.status = 'paid';
+        if (!row.date) row.date = today();
+      } else if (v > 0) {
+        row.status = 'partial';
+        if (!row.date) row.date = today();
+      }
+
       t.setAttribute('data-dirty', v != null && v !== row.est ? '1' : '0');
+      save();
+      renderAll();
+      // keep the caret in the field the user is typing in
+      var again = document.querySelector('tr[data-row="' + row.id + '"] .amt-input');
+      if (again) again.focus();  // number inputs reject setSelectionRange
+      return;
     } else if (field === 'date') {
       row.date = t.value;
     } else if (field === 'note') {
       row.note = t.value;
     }
     save();
+    if (field === 'date') renderGov();  // keeps the payslip-ish ordering honest
     renderSummary();
-    if (field === 'actual') {
-      document.getElementById('govFootAct').textContent = fmtShort(govActualTotal());
-      document.getElementById('govSubtotal').textContent = fmtShort(govEstimateTotal());
-    }
   });
 
   document.getElementById('vaFee').addEventListener('input', function (e) {
@@ -326,7 +419,7 @@
     var textEl = document.getElementById('logText');
     var text = textEl.value.trim();
     if (!text) return;
-    state.log.unshift({ date: dateEl.value || new Date().toISOString().slice(0, 10), text: text });
+    state.log.unshift({ date: dateEl.value || today(), text: text });
     state.log.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
     textEl.value = '';
     save();
@@ -335,18 +428,23 @@
 
   /* ── export / backup ───────────────────────────────────── */
   function exportCsv() {
-    var rows = [['Section', 'Agency / Service', 'Item', 'Estimate (PHP)', 'Actual paid (PHP)', 'Status', 'Date', 'Note']];
+    state.gov.forEach(reconcileStatus);
+    state.va.forEach(reconcileStatus);
+    var rows = [['Section', 'Agency / Service', 'Item', 'Estimate (PHP)', 'Paid so far (PHP)', 'Balance (PHP)', 'Status', 'Date', 'Note']];
     state.gov.forEach(function (r) {
-      rows.push(['Government', r.agency, r.item, r.est, r.status === 'paid' ? (r.actual != null ? r.actual : r.est) : '', STATUS_LABEL[r.status], r.date, r.note]);
+      rows.push(['Government', r.agency, r.item, r.est, booked(r), balanceOf(r), STATUS_LABEL[r.status], r.date, r.note]);
     });
     rows.push([]);
     state.va.forEach(function (r) {
-      rows.push(['VA Service', r.scope, r.covers, '', '', STATUS_LABEL[r.status], r.date, r.note]);
+      rows.push(['VA Service', r.scope, r.covers, '', '', '', STATUS_LABEL[r.status], r.date, r.note]);
     });
     rows.push([]);
-    rows.push(['TOTALS', '', 'Government subtotal', govEstimateTotal(), govActualTotal(), '', '', 'Actual = paid rows only']);
-    rows.push(['TOTALS', '', 'VA handling fee', state.vaFee, '', state.vaCollected ? 'Collected' : 'Not yet collected']);
-    rows.push(['TOTALS', '', 'Grand total', govEstimateTotal() + state.vaFee]);
+    rows.push(['TOTALS', '', 'Government subtotal', govEstimateTotal(), govActualTotal(), govBalanceTotal()]);
+    rows.push(['TOTALS', '', 'VA handling fee', state.vaFee, vaPaid(), state.vaCollected ? 0 : state.vaFee, state.vaCollected ? 'Collected' : 'Not yet collected']);
+    rows.push(['TOTALS', '', 'Grand total', govEstimateTotal() + state.vaFee, govActualTotal() + vaPaid(), govBalanceTotal() + (state.vaCollected ? 0 : state.vaFee)]);
+    rows.push([]);
+    rows.push(['TOTALS', '', 'Received to date (estimate basis)', govSettledEstimate() + vaPaid()]);
+    rows.push(['TOTALS', '', 'Outstanding balance (estimate basis)', govEstimateTotal() + state.vaFee - govSettledEstimate() - vaPaid()]);
 
     var csv = rows.map(function (r) {
       return r.map(function (cell) {
@@ -406,7 +504,7 @@
     toast('Tracker reset');
   });
 
-  document.getElementById('logDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('logDate').value = today();
 
   renderScope();
   renderAll();

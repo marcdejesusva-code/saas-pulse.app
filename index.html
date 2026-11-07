@@ -64,9 +64,14 @@
       <span class="kpi-sub">De Jesus VA Service</span>
     </div>
     <div class="kpi">
-      <span class="kpi-label">Settled</span>
+      <span class="kpi-label">Paid in full</span>
       <strong class="kpi-value ok" id="kPaid">—</strong>
       <span class="kpi-sub" id="kPaidSub">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Partially paid</span>
+      <strong class="kpi-value warn" id="kPartial">—</strong>
+      <span class="kpi-sub" id="kPartialSub">—</span>
     </div>
     <div class="kpi">
       <span class="kpi-label">Still to fund</span>
@@ -91,7 +96,7 @@
     <div class="card-head">
       <div>
         <h2 id="gov-h">Government Official Fees</h2>
-        <p class="muted">Click a status chip to cycle: Not started → In progress → Paid. Amounts are editable for actual receipts.</p>
+        <p class="muted">Click a status chip to cycle: Not started → In progress → Partial → Paid. Enter the amount actually received so far in <em>Paid so far</em>; a partial payment is booked as soon as it is less than the estimate.</p>
       </div>
       <div class="head-total">
         <span class="muted">Subtotal</span>
@@ -105,7 +110,8 @@
             <th class="col-agency">Agency / step</th>
             <th class="col-item">Item</th>
             <th class="col-amt">Estimate</th>
-            <th class="col-actual">Actual paid</th>
+            <th class="col-actual">Paid so far</th>
+            <th class="col-balance">Balance</th>
             <th class="col-status">Status</th>
             <th class="col-date">Date</th>
             <th class="col-note">Note</th>
@@ -114,9 +120,10 @@
         <tbody id="govBody"></tbody>
         <tfoot>
           <tr>
-            <td colspan="2">Subtotal — government expenses <span class="muted small">(actual column counts rows marked Paid only)</span></td>
+            <td colspan="2">Subtotal — government expenses <span class="muted small">(paid + partial, actual amounts)</span></td>
             <td class="num" id="govFootEst">—</td>
             <td class="num" id="govFootAct">—</td>
+            <td class="num" id="govFootBal">—</td>
             <td colspan="3"></td>
           </tr>
         </tfoot>
@@ -169,6 +176,9 @@
       <div class="total-line"><span>Government expenses</span><strong id="tGov">—</strong></div>
       <div class="total-line"><span>VA handling fees</span><strong id="tVa">—</strong></div>
       <div class="total-line grand"><span>Grand total</span><strong id="tGrand">—</strong></div>
+      <div class="total-line"><span>Received to date (paid + partial)</span><strong id="tReceived">—</strong></div>
+      <div class="total-line"><span>Outstanding balance</span><strong id="tBalance">—</strong></div>
+      <div class="total-line"><span>Settled in full</span><strong id="tSettled">—</strong></div>
     </div>
     <p class="muted small">Official receipts may differ slightly from estimates; edit the “Actual paid” column as documents arrive.</p>
   </section>

@@ -24,9 +24,10 @@ single-threaded and lets the browser cache assets.
 
 ## What it does
 
-- **Government fees table** — 11 line items across DTI, Barangay Tagpos, Binangonan BPLO/BFP/CHO, BIR RDO, and notarization. Each row has an editable *actual paid* amount, a status chip (Not started → In progress → Paid), a paid date, and a note.
+- **Government fees table** — 11 line items across DTI, Barangay Tagpos, Binangonan BPLO/BFP/CHO, BIR RDO, and notarization. Each row tracks *paid so far*, a live *balance*, a status chip (Not started → In progress → **Partial** → Paid), a paid date, and a note.
+- **Partial payments** — enter any amount below an estimate and the row automatically becomes **Partial** with the remaining balance shown in red; top it up to the estimate and it flips to **Paid**. Clearing the amount releases the booking. Overpayments are kept as entered and clamp the balance at zero. Marking a row Paid with no amount settles the full estimate.
 - **VA fee table** — the four service scopes (DTI, local government, BIR, business portfolio) with the same status tracking, plus an editable package professional fee (₱18,000) and a "fee collected" toggle.
-- **Live totals** — estimates vs. actual paid vs. still-to-fund, recomputed on every edit.
+- **Live totals** — Paid in full / Partially paid / Still to fund, plus *received to date* and *outstanding balance*, recomputed on every edit. The invariant `received + balance = total` is maintained to the centavo, including fractional partial payments. Progress is value-weighted, so a half-paid permit moves the bar by its real share rather than a flat 50%.
 - **Pipeline** — six-step view: DTI → Barangay → BPLO → BFP/sanitary → BIR → notarized SPA.
 - **Client update log** — dated internal notes on what was sent to Mr. Yson.
 - **Export** — CSV of the full breakdown, JSON backup, and a print stylesheet for a clean PDF.
@@ -40,6 +41,8 @@ State is saved in `localStorage`. *Reset tracker* restores the original estimate
 | Government official fees | ₱33,460.00 |
 | De Jesus VA handling fee | ₱18,000.00 |
 | **Total** | **₱51,460.00** |
+
+Payment state: a row is **Paid** when booked amount ≥ estimate, **Partial** when 0 < booked < estimate, where booked = the amount entered, or the estimate if the row was marked paid without an amount.
 
 Government breakdown: DTI ₱1,030 (✅ completed) · Barangay clearance ₱500 · Mayor's permit ₱20,000 · BFP ₱2,000 · sanitary/zoning ₱2,000 · Cedula ₱600 · BIR 0605 ₱1,000 · loose DST ₱30 · ATP ₱5,000 · Books of Accounts ₱800 · SPA notarization ₱500.
 
