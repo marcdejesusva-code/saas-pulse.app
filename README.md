@@ -9,9 +9,16 @@ Internal cost + compliance tracker for the business registration of **EHZ Securi
 No build step, no dependencies:
 
 ```bash
-python3 -m http.server 8000 --bind 0.0.0.0
+python3 serve.py            # PORT=8000 by default
 # open http://localhost:8000
 ```
+
+`serve.py` is a small `ThreadingHTTPServer` wrapper: it serves assets in
+parallel over HTTP/1.1, sends `Cache-Control: no-store` and ignores
+conditional requests (so an edited `app.js` is never served stale from a
+`304`), answers `/favicon.ico` with an inline SVG, and binds `0.0.0.0` so the
+sandbox preview proxy can reach it. `python3 -m http.server` also works but is
+single-threaded and lets the browser cache assets.
 
 `index.html` + `assets/styles.css` + `assets/app.js`. Works from `file://` too, but the print view is cleaner over HTTP.
 
