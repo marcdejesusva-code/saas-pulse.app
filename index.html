@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EHZ Security System Services — Registration Tracker</title>
+<meta name="description" content="Internal cost breakdown and compliance status tracker for EHZ Security System Service (John Henry L. Yson) — De Jesus Virtual Assistant Service.">
+
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="mark" aria-hidden="true">EHZ</div>
+    <div class="brand-txt">
+      <h1>EHZ Security System Service</h1>
+      <p>Business registration tracker &middot; <span class="muted">internal records</span></p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span class="save-state" id="saveState" role="status" aria-live="polite">Saved locally</span>
+    <button class="btn btn-ghost" id="btnPrint" type="button">Print / PDF</button>
+    <button class="btn btn-ghost" id="btnCsv" type="button">Export CSV</button>
+    <button class="btn btn-ghost" id="btnJson" type="button">Backup</button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ── Client / engagement card ───────────────────────────── -->
+  <section class="card profile" aria-labelledby="profile-h">
+    <div class="profile-head">
+      <h2 id="profile-h">Engagement Snapshot</h2>
+      <span class="pill pill-ok" id="scopePill">Regional — Region IV-A CALABARZON</span>
+    </div>
+    <dl class="facts">
+      <div><dt>Registered name</dt><dd>EHZ Security System Service (Regional)</dd></div>
+      <div><dt>Owner</dt><dd>John Henry L. Yson</dd></div>
+      <div><dt>Address</dt><dd>1183 Sitio Malitlit Phase 1, Tagpos, Binangonan, Rizal</dd></div>
+      <div><dt>DTI validity</dt><dd>Nov 5, 2026 — Nov 5, 2031</dd></div>
+      <div><dt>Handled by</dt><dd>Marc Rey D. De Jesus — De Jesus Virtual Assistant Service</dd></div>
+      <div><dt>Client email</dt><dd>dejesusvirtualassistantservice@gmail.com</dd></div>
+    </dl>
+  </section>
+
+  <!-- ── KPI strip ──────────────────────────────────────────── -->
+  <section class="kpis" aria-label="Cost summary">
+    <div class="kpi">
+      <span class="kpi-label">Total project</span>
+      <strong class="kpi-value" id="kTotal">—</strong>
+      <span class="kpi-sub" id="kTotalSub">Government + VA fees</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Government fees</span>
+      <strong class="kpi-value" id="kGov">—</strong>
+      <span class="kpi-sub" id="kGovSub">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">VA handling fee</span>
+      <strong class="kpi-value" id="kVaFee">—</strong>
+      <span class="kpi-sub">De Jesus VA Service</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Settled</span>
+      <strong class="kpi-value ok" id="kPaid">—</strong>
+      <span class="kpi-sub" id="kPaidSub">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi-label">Still to fund</span>
+      <strong class="kpi-value due" id="kDue">—</strong>
+      <span class="kpi-sub" id="kDueSub">—</span>
+    </div>
+  </section>
+
+  <section class="card progress-card" aria-label="Completion progress">
+    <div class="progress-head">
+      <h3>Completion</h3>
+      <span id="progressLabel" class="progress-label">0 of 0 steps</span>
+    </div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar">
+      <span class="bar-fill" id="barFill"></span>
+    </div>
+    <ol class="pipeline" id="pipeline"></ol>
+  </section>
+
+  <!-- ── Government fees ───────────────────────────────────── -->
+  <section class="card" aria-labelledby="gov-h">
+    <div class="card-head">
+      <div>
+        <h2 id="gov-h">Government Official Fees</h2>
+        <p class="muted">Click a status chip to cycle: Not started → In progress → Paid. Amounts are editable for actual receipts.</p>
+      </div>
+      <div class="head-total">
+        <span class="muted">Subtotal</span>
+        <strong id="govSubtotal">—</strong>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th class="col-agency">Agency / step</th>
+            <th class="col-item">Item</th>
+            <th class="col-amt">Estimate</th>
+            <th class="col-actual">Actual paid</th>
+            <th class="col-status">Status</th>
+            <th class="col-date">Date</th>
+            <th class="col-note">Note</th>
+          </tr>
+        </thead>
+        <tbody id="govBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">Subtotal — government expenses <span class="muted small">(actual column counts rows marked Paid only)</span></td>
+            <td class="num" id="govFootEst">—</td>
+            <td class="num" id="govFootAct">—</td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── VA fees ───────────────────────────────────────────── -->
+  <section class="card" aria-labelledby="va-h">
+    <div class="card-head">
+      <div>
+        <h2 id="va-h">De Jesus Virtual Assistant Service Fees</h2>
+        <p class="muted">Package fee is billed as one professional fee covering all four scopes below.</p>
+      </div>
+      <div class="head-total">
+        <span class="muted">Subtotal</span>
+        <strong id="vaSubtotal">—</strong>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th class="col-agency">Service scope</th>
+            <th class="col-item">What it covers</th>
+            <th class="col-status">Status</th>
+            <th class="col-date">Date</th>
+            <th class="col-note">Note</th>
+          </tr>
+        </thead>
+        <tbody id="vaBody"></tbody>
+      </table>
+    </div>
+    <div class="fee-row">
+      <label for="vaFee">Professional fee (editable)</label>
+      <div class="money-input">
+        <span aria-hidden="true">₱</span>
+        <input id="vaFee" type="number" min="0" step="100" inputmode="decimal" value="18000">
+      </div>
+      <button class="chip" type="button" id="vaCollected" data-s="todo" aria-pressed="false">
+        Fee collected
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Grand total ───────────────────────────────────────── -->
+  <section class="card total-card" aria-labelledby="tot-h">
+    <h2 id="tot-h">Total Estimated Project Investment</h2>
+    <div class="total-grid">
+      <div class="total-line"><span>Government expenses</span><strong id="tGov">—</strong></div>
+      <div class="total-line"><span>VA handling fees</span><strong id="tVa">—</strong></div>
+      <div class="total-line grand"><span>Grand total</span><strong id="tGrand">—</strong></div>
+    </div>
+    <p class="muted small">Official receipts may differ slightly from estimates; edit the “Actual paid” column as documents arrive.</p>
+  </section>
+
+  <!-- ── Service scope ─────────────────────────────────────── -->
+  <section class="card" aria-labelledby="scope-h">
+    <h2 id="scope-h">Registered Service Scope</h2>
+    <ul class="chips" id="scopeList"></ul>
+  </section>
+
+  <!-- ── Update log ────────────────────────────────────────── -->
+  <section class="card" aria-labelledby="log-h">
+    <div class="card-head">
+      <div>
+        <h2 id="log-h">Client Update Log</h2>
+        <p class="muted">Internal notes on what was sent to Mr. Yson and when.</p>
+      </div>
+    </div>
+    <form class="log-form" id="logForm">
+      <input type="date" id="logDate" required aria-label="Log date">
+      <input type="text" id="logText" placeholder="e.g. Sent updated cost breakdown v2 with Binangonan BPLO fees" required aria-label="Log entry">
+      <button class="btn btn-solid" type="submit">Add entry</button>
+    </form>
+    <ul class="timeline" id="logList"></ul>
+  </section>
+
+  <footer class="foot">
+    <p>De Jesus Virtual Assistant Service &middot; prepared for John Henry L. Yson &middot; EHZ Security System Service</p>
+    <button class="linkish" id="btnReset" type="button">Reset tracker to original estimates</button>
+  </footer>
+
+</main>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
